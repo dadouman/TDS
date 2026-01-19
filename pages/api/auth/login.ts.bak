@@ -1,0 +1,163 @@
+/**
+ * User Login API Handler
+ * Handles POST /api/auth/login to authenticate users
+ * 
+ * Source: Story 1-002 Task 1 - User Login API Handler
+ * 
+ * Accepts:
+ * - email (string, required, valid email format)
+ * - password (string, required)
+ * 
+ * Returns:
+ * - 200 OK: { success: true, userId, email, role, token, expiresIn }
+ * - 400 Bad Request: { error: "validation error details" }
+ * - 401 Unauthorized: { error: "Invalid email or password" }
+ * - 500 Internal Server Error: { error: "Internal server error" }
+ */
+
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { prisma } from '@/utils/prisma';
+import { comparePassword } from '@/utils/password';
+import { validateEmail, normalizeEmail } from '@/utils/emailValidator';
+import { createToken } from '@/middleware/auth';
+import { setSecureCookie } from '@/utils/cookies';
+
+/**
+ * Type definition for login request body
+ */
+type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+/**
+ * Type definition for login response
+ */
+type LoginResponse = {
+  success?: boolean;
+  userId?: string;
+  email?: string;
+  role?: string;
+  token?: string;
+  expiresIn?: string;
+  error?: string;
+  details?: string[];
+};
+
+/**
+ * POST /api/auth/login
+ * 
+ * Public endpoint - no authentication required (users are logging in)
+ * Only POST method allowed
+ */
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<LoginResponse>
+) {
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    console.log(`[Login] Method not allowed: ${req.method}`);
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { email, password } = req.body as LoginRequest;
+
+  console.log('[Login] Attempt:', { email: email ? email.substring(0, 3) + '***' : 'missing' });
+
+  // ====================
+  // VALIDATION PHASE 1: Required Fields
+  // ====================
+  if (!email || !password) {
+    console.log('[Login] Validation Error: Missing required fields');
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: [
+        email ? undefined : 'email is required',
+        password ? undefined : 'password is required',
+      ].filter(Boolean) as string[],
+    });
+  }
+
+  // ====================
+  // VALIDATION PHASE 2: Email Format & Normalization
+  // ====================
+  if (!validateEmail(email)) {
+    console.log('[Login] Validation Error: Invalid email format', { email: email.substring(0, 3) + '***' });
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: ['email must be valid format'],
+    });
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+
+  try {
+    // ====================
+    // DATABASE PHASE 1: Find User by Email
+    // ====================
+    const user = await prisma.user.findFirst({
+      where: {
+        email: normalizedEmail,
+        is_deleted: false,
+      },
+    });
+
+    if (!user) {
+      console.log('[Login] Failed: User not found', { email: normalizedEmail.substring(0, 3) + '***' });
+      // Return generic message to prevent email enumeration
+      return res.status(401).json({
+        error: 'Invalid email or password',
+      });
+    }
+
+    // ====================
+    // AUTHENTICATION PHASE: Verify Password
+    // ====================
+    const passwordMatch = await comparePassword(password, user.password_hash);
+
+    if (!passwordMatch) {
+      console.log('[Login] Failed: Incorrect password', { userId: user.id });
+      // Return generic message to prevent email enumeration
+      return res.status(401).json({
+        error: 'Invalid email or password',
+      });
+    }
+
+    console.log('[Login] Success: User authenticated', { userId: user.id, email: normalizedEmail.substring(0, 3) + '***' });
+
+    // ====================
+    // TOKEN PHASE: Create JWT
+    // ====================
+    const token = createToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role.toLowerCase(),
+    });
+
+    // ====================
+    // COOKIE PHASE: Set Secure HttpOnly Cookie
+    // ====================
+    const expiryMs = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    setSecureCookie(res, token, expiryMs);
+
+    // ====================
+    // RESPONSE PHASE: Return Success
+    // ====================
+    return res.status(200).json({
+      success: true,
+      userId: user.id,
+      email: user.email,
+      role: user.role.toLowerCase(),
+      token,
+      expiresIn: '7d',
+    });
+  } catch (error) {
+    // Unexpected database or server error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Login] Unexpected error:', errorMessage);
+
+    return res.status(500).json({
+      error: 'Internal server error',
+    });
+  }
+}

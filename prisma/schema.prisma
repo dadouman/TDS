@@ -1,0 +1,233 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  FREIGHTER
+  CARRIER
+  WAREHOUSE
+  STORE
+  ADMIN
+}
+
+enum LocationType {
+  SUPPLIER
+  HUB
+  STORE
+}
+
+enum PlanStatus {
+  DRAFT
+  PROPOSED
+  ACCEPTED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum TripStatus {
+  PROPOSED
+  ACCEPTED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum IncidentType {
+  REFUSAL
+  DELAY
+  IMBALANCE
+}
+
+enum IncidentStatus {
+  OPEN
+  RESOLVED
+  ESCALATED
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  password_hash    String
+  firstName        String
+  lastName         String
+  assignedTrips    Trip[]         @relation("carrier")
+  role             Role      @default(FREIGHTER)
+  isEmailVerified  Boolean   @default(false)
+  storeLocationId  String?        // For STORE role - which location they manage
+  storeLocation    Location? @relation("storeManagers", fields: [storeLocationId], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  is_deleted       Boolean   @default(false)
+
+  // Relations
+  createdPlans     TransportPlan[]
+  notifications    Notification[]
+  cmrs             CMR[]     @relation("warehouse_cmr")
+
+  @@index([email])
+  @@index([is_deleted])
+  @@index([storeLocationId])
+  @@map("users")
+}
+
+model Location {
+  id               String       @id @default(cuid())
+  name             String
+  type             LocationType
+  address          String?
+  latitude         Float?
+  longitude        Float?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  is_deleted       Boolean      @default(false)
+
+  // Relations
+  suppliedPlans    TransportPlan[] @relation("supplier")
+  deliveryPlans    TransportPlan[] @relation("destination")
+  hubPlans         TransportPlan[] @relation("hub")
+  storeManagers    User[]       @relation("storeManagers")
+
+  @@index([type])
+  @@index([is_deleted])
+  @@map("locations")
+}
+
+model TransportPlan {
+  id                    String      @id @default(cuid())
+  supplierId            String
+  destinationId         String
+  hubId                 String?
+  unitCount             Int
+  plannedLoadingTime    DateTime
+  estimatedHubTime      DateTime?
+  estimatedDeliveryTime DateTime?
+  status                PlanStatus  @default(DRAFT)
+  notes                 String?
+  version               Int         @default(1)
+  createdBy             String
+  createdAt             DateTime    @default(now())
+  preArrivalNotified    Boolean     @default(false) // Story 5.021: Pre-arrival notification flag
+  trips                 Trip[]
+  updatedAt             DateTime    @updatedAt
+  is_deleted            Boolean     @default(false)
+
+  // Relations
+  supplier              Location    @relation("supplier", fields: [supplierId], references: [id])
+  destination           Location    @relation("destination", fields: [destinationId], references: [id])
+  hub                   Location?   @relation("hub", fields: [hubId], references: [id])
+  createdByUser         User        @relation(fields: [createdBy], references: [id])
+  incidents             Incident[]
+  notifications         Notification[]
+
+  @@index([supplierId])
+  @@index([destinationId])
+  @@index([hubId])
+  @@index([createdBy])
+  @@index([status])
+  @@index([is_deleted])
+  @@map("transport_plans")
+}
+
+model Incident {
+  id               String          @id @default(cuid())
+  type             IncidentType
+  status           IncidentStatus  @default(OPEN)
+  planId           String
+  carrierId        String?
+  warehouseId      String?
+  description      String
+  createdAt        DateTime        @default(now())
+  resolvedAt       DateTime?
+  is_deleted       Boolean         @default(false)
+
+  // Relations
+  plan             TransportPlan   @relation(fields: [planId], references: [id])
+
+  @@index([planId])
+  @@index([type])
+  @@index([status])
+  @@index([is_deleted])
+  @@map("incidents")
+}
+
+model Trip {
+  id               String      @id @default(cuid())
+  planId           String
+  carrierId        String
+  status           TripStatus  @default(PROPOSED)
+  acceptedAt       DateTime?
+  refusedAt        DateTime?
+  refusalReason    String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  is_deleted       Boolean     @default(false)
+
+  // Relations
+  plan             TransportPlan @relation(fields: [planId], references: [id])
+  carrier          User          @relation("carrier", fields: [carrierId], references: [id])
+  cmr              CMR?         // One-to-one: each trip can have one CMR
+
+  @@index([carrierId])
+  @@index([planId])
+  @@index([status])
+  @@index([is_deleted])
+  @@map("trips")
+}
+
+model Notification {
+  id               String   @id @default(cuid())
+  userId           String   // Store user or freighter to notify
+  type             String   // 'DELAY', 'INCIDENT', 'PRE_ARRIVAL', etc.
+  planId           String
+  message          String
+  acknowledged     Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  is_deleted       Boolean  @default(false)
+
+  // Relations
+  user             User     @relation(fields: [userId], references: [id])
+  plan             TransportPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId, acknowledged, createdAt])
+  @@index([planId])
+  @@index([is_deleted])
+  @@map("notifications")
+}
+
+model CMR {
+  id               String   @id @default(cuid())
+  tripId           String   @unique
+  warehouseId      String
+  receivedCount    Int?
+  damageDeclared   Boolean  @default(false)
+  damageNotes      String?
+  inspectorName    String?
+  status           String   @default("DRAFT")
+  version          Int      @default(1)
+  submittedAt      DateTime?
+
+    lastUpdatedBy    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  is_deleted       Boolean  @default(false)
+
+  // Relations
+  trip             Trip     @relation(fields: [tripId], references: [id])
+  warehouse        User     @relation("warehouse_cmr", fields: [warehouseId], references: [id])
+
+  @@index([tripId])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([is_deleted])
+  @@map("cmrs")
+}

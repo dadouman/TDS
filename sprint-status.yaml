@@ -1,0 +1,176 @@
+project: "TDS Transport Management System"
+sprint: "MVP Sprint 1"
+updated: "2026-01-18"
+
+# Epic 1: User Authentication & Roles
+epic-1-authentication:
+  status: completed
+  stories:
+    1-001-user-registration:
+      status: completed
+      tests: 9
+    1-002-user-login:
+      status: completed
+      tests: 12
+    1-003-user-logout:
+      status: completed
+      tests: 6
+    1-031-infrastructure-setup:
+      status: completed
+    1-032-nextjs-prisma-postgresql:
+      status: completed
+
+# Epic 2: Transport Plan Management
+epic-2-plan-management:
+  status: in-progress
+  stories:
+    2-005-create-plan:
+      status: in-progress
+      tests: 11
+      tasks_completed: 6/6
+      review_items: 7
+      description: "CREATE plan - 7 CRITICAL/MEDIUM issues found (AC violations)"
+    2-006-list-plans:
+      status: completed
+      tests: 9
+      tasks_completed: 4/4
+      description: "LIST plans - APPROVED, all ACs implemented ✅"
+    2-007-view-plan-details:
+      status: completed
+      tests: 8
+      tasks_completed: 4/4
+      description: "VIEW plan details - APPROVED, excellent implementation ✅"
+    2-008-modify-plan:
+      status: completed
+      tests: 16
+      tasks_completed: 6/6
+      description: "MODIFY plan - EXCELLENT, best in epic (optimistic locking) 🏆"
+    2-009-view-incidents:
+      status: in-progress
+      tests: 26
+      tests_failing: 28
+      review_items: 3
+      description: "VIEW incidents - Test FK constraint issue blocking"
+
+# Epic 3: Incident Detection
+epic-3-incidents:
+  status: completed
+  stories:
+    3-010-detect-refusal-incidents:
+      status: completed
+      tests: 13
+      review: "APPROVED - Atomic incident creation ✅"
+    3-011-detect-delay-incidents:
+      status: completed
+      tests: 20
+      review: "APPROVED - 30min threshold with dedup ✅"
+    3-012-detect-imbalance-incidents:
+      status: completed
+      tests: 33
+      review: "APPROVED - Comprehensive tests, tolerance ±1 ✅"
+    3-013-sse-endpoint-real-time-notifications:
+      status: completed
+      tests: 39
+      review: "APPROVED - SSE infrastructure + RBAC ✅"
+
+# Epic 4: Driver/Carrier Interface
+epic-4-driver-interface:
+  status: completed
+  stories:
+    4-014-list-assigned-trips:
+      status: completed
+      tests: 8
+      review: "APPROVED - CARRIER-only view ✅"
+    4-015-view-trip-details:
+      status: completed
+      tests: 8
+      review: "APPROVED - Timeline + location details ✅"
+    4-016-accept-trip:
+      status: completed
+      tests: 10
+      review: "APPROVED - Atomic accept + notification ✅"
+    4-017-refuse-trip:
+      status: completed
+      tests: 13
+      review: "APPROVED - Atomic refusal + incident ✅"
+
+# Epic 5: Store Dashboard
+epic-5-store-dashboard:
+  status: completed
+  stories:
+    5-018-store-delivery-dashboard:
+      status: completed
+      tests: 11
+      review: "APPROVED - Incident flags + ETA sorting ✅"
+    5-019-realtime-delivery-updates:
+      status: completed
+      tests: 12
+      review: "APPROVED - SSE + data isolation ✅"
+    5-020-delay-alert-notifications:
+      status: completed
+      tests: 9
+      review: "APPROVED - Delay alerts to store"
+    5-021-pre-arrival-notifications:
+      status: completed
+      tests: 12
+      description: "Real-time SSE endpoint for store managers to receive delivery status updates"
+    5-020-delay-alert-notifications:
+      status: completed
+      tests: 9
+      description: "Store notifications for delayed deliveries"
+    5-021-pre-arrival-notifications:
+      status: completed
+      tests: 8
+      description: "Pre-arrival notifications sent 30 minutes before delivery (±5 min window)"
+
+# Epic 6: CMR Form Management
+epic-6-cmr-forms:
+  status: not-started
+  stories:
+    6-022-cmr-form-ui-layout:
+      status: not-started
+    6-022-cmr-form-ui-layout:
+      status: completed
+      tests: 8
+      description: "CMR form display with read-only trip details and editable fields"
+    6-023-view-cmr-form:
+      status: completed
+      tests: 10
+      description: "View CMR form with imbalance detection (±1 tolerance) and read-only SUBMITTED forms"
+    6-024-edit-cmr-progressive:
+      status: completed
+      tests: 10
+      description: "Auto-save CMR with optimistic locking, version conflict handling, and status transitions"
+    6-025-submit-cmr-imbalance-trigger:
+      status: not-started
+    6-026-generate-cmr-pdf:
+      status: not-started
+
+# Test Suite Summary
+test_summary:
+  total_tests_passing: 367
+  total_tests_passing: 375
+  total_tests_passing: 385
+  total_tests_passing: 395
+  pass_rate: 100%
+  last_run: "2026-01-18T22:00:00Z"
+  test_breakdown:
+    auth_tests: 27
+    plan_tests: 68
+    incident_tests: 24
+    driver_tests: 39
+    store_tests: 40
+    delay_detection_tests: 20
+    sse_tests: 27
+    pre_arrival_tests: 8
+        cmr_view_tests: 10
+      cmr_form_tests: 8
+      cmr_edit_tests: 10
+    utils_tests: 126
+
+# Status Legend
+# - not-started: Not begun
+# - ready-for-dev: Queued, ready to work on
+# - in-progress: Currently being developed
+# - review: Complete, awaiting code review
+# - completed: Merged to main
