@@ -51,9 +51,30 @@ next-env.d.ts
 # Backup files
 *.backup
 
-# Output files
+# BMAD Documentation & Configuration (non-production)
+_bmad/
 _bmad-output/
+
+# Output & Log files
 full_logs.txt
 server-logs.txt
 test_*.txt
 *_output*.txt
+
+# Scripts d'administration
+check-admin.js
+create-admin.js
+debug-admin.js
+restore-admin.js
+test-login.js
+seed-data.js
+
+# Sensitive Files
+*.key
+*.cert
+*.pem
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
