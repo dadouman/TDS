@@ -294,6 +294,41 @@ async function seedData() {
     ]);
     console.log(`   ✅ ${plans.length} transport plans created\n`);
 
+    // ===== TRIPS (for warehouse CMR workflow) =====
+    console.log('🚚 Creating trips for warehouse CMR...');
+    const carrierUser = testUsers.find(u => u.role === 'CARRIER');
+    
+    const trips = await Promise.all([
+      // Trip for plan 2 (PROPOSED) - needs CMR when ACCEPTED
+      prisma.trip.create({
+        data: {
+          planId: plans[1].id,
+          carrierId: carrierUser.id,
+          status: 'ACCEPTED',
+          acceptedAt: new Date()
+        }
+      }),
+      // Trip for plan 3 (ACCEPTED) - needs CMR before IN_TRANSIT
+      prisma.trip.create({
+        data: {
+          planId: plans[2].id,
+          carrierId: carrierUser.id,
+          status: 'ACCEPTED',
+          acceptedAt: new Date()
+        }
+      }),
+      // Trip for plan 4 (IN_TRANSIT) - CMR already needed
+      prisma.trip.create({
+        data: {
+          planId: plans[3].id,
+          carrierId: carrierUser.id,
+          status: 'IN_TRANSIT',
+          acceptedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+        }
+      })
+    ]);
+    console.log(`   ✅ ${trips.length} trips created\n`);
+
     // ===== SUMMARY =====
     console.log('📊 Seed Summary:');
     console.log(`   🔹 Suppliers: ${suppliers.length}`);
@@ -301,6 +336,7 @@ async function seedData() {
     console.log(`   🔹 Stores: ${stores.length}`);
     console.log(`   🔹 Test Users: ${testUsers.length}`);
     console.log(`   🔹 Transport Plans: ${plans.length}`);
+    console.log(`   🔹 Trips: ${trips.length}`);
     console.log(`   🔹 Total Locations: ${suppliers.length + hubs.length + stores.length}`);
     
     console.log('\n🔐 Test Accounts:');

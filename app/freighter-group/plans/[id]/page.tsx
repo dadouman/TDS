@@ -174,7 +174,11 @@ export default function PlanDetailPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-gray-600">Created By</label>
-              <p className="text-gray-900">{plan.createdBy}</p>
+              <p className="text-gray-900">
+                {typeof (plan as any).createdBy === 'string'
+                  ? (plan as any).createdBy
+                  : (plan as any).createdBy?.email || 'Unknown'}
+              </p>
             </div>
             <div>
               <label className="text-sm text-gray-600">Plan ID</label>

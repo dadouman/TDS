@@ -144,7 +144,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse<IncidentsRespon
         id: incident.plan.id,
         status: incident.plan.status,
         unitCount: incident.plan.unitCount,
-        createdBy: incident.plan.createdByUser
+        createdBy: incident.plan.createdByUser?.email || 'Unknown'
       }
     }));
 

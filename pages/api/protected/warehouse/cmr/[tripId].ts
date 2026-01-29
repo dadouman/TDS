@@ -49,6 +49,7 @@ type CMRFormResponse = {
     };
   };
   error?: string;
+};
 
 type CMRUpdateRequest = {
   receivedCount?: number | null;
@@ -78,7 +79,6 @@ type CMRUpdateResponse = {
     clientVersion: number;
     currentData: any;
   };
-};
 };
 
 async function handler(
@@ -282,6 +282,7 @@ async function handler(
     } catch (error) {
       console.error('Error updating CMR:', error);
       return res.status(500).json({ error: 'Internal server error' });
+    }
   }
 }
 

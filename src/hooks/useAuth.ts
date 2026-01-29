@@ -40,7 +40,14 @@ export function useAuth(): UseAuthReturn {
         
         if (res.ok) {
           const data = await res.json();
-          setUser(data.user);
+          setUser(
+            data.user
+              ? {
+                  ...data.user,
+                  role: (data.user.role || 'FREIGHTER').toUpperCase() as AuthUser['role']
+                }
+              : null
+          );
         } else {
           setUser(null);
         }
@@ -122,7 +129,14 @@ export function useAuth(): UseAuthReturn {
       }
 
       const data = await res.json();
-      setUser(data.user);
+      setUser(
+        data.user
+          ? {
+              ...data.user,
+              role: (data.user.role || 'FREIGHTER').toUpperCase() as AuthUser['role']
+            }
+          : null
+      );
       
       // Redirect based on role
       const roleRoutes: Record<string, string> = {

@@ -53,6 +53,15 @@ enum IncidentStatus {
   ESCALATED
 }
 
+enum OrderStatus {
+  DRAFT
+  GROUPED
+  ASSIGNED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
 model User {
   id               String    @id @default(cuid())
   email            String    @unique
@@ -72,6 +81,7 @@ model User {
   createdPlans     TransportPlan[]
   notifications    Notification[]
   cmrs             CMR[]     @relation("warehouse_cmr")
+  createdOrders    Order[]   @relation("order_creator")
 
   @@index([email])
   @@index([is_deleted])
@@ -91,10 +101,11 @@ model Location {
   is_deleted       Boolean      @default(false)
 
   // Relations
-  suppliedPlans    TransportPlan[] @relation("supplier")
-  deliveryPlans    TransportPlan[] @relation("destination")
-  hubPlans         TransportPlan[] @relation("hub")
   storeManagers    User[]       @relation("storeManagers")
+  orders_departure Order[]      @relation("order_departure")
+  orders_arrival   Order[]      @relation("order_arrival")
+  trips_departure  Trip[]       @relation("trip_departure")
+  trips_arrival    Trip[]       @relation("trip_arrival")
 
   @@index([type])
   @@index([is_deleted])
@@ -103,38 +114,58 @@ model Location {
 
 model TransportPlan {
   id                    String      @id @default(cuid())
-  supplierId            String
-  destinationId         String
-  hubId                 String?
-  unitCount             Int
-  plannedLoadingTime    DateTime
-  estimatedHubTime      DateTime?
-  estimatedDeliveryTime DateTime?
+  warehouse_id          String?     // Entrepôt qui crée ce plan
+  plan_date             DateTime?   // Date du plan transport
   status                PlanStatus  @default(DRAFT)
+  total_trips           Int         @default(0)
+  total_units           Int         @default(0)
   notes                 String?
   version               Int         @default(1)
   createdBy             String
   createdAt             DateTime    @default(now())
-  preArrivalNotified    Boolean     @default(false) // Story 5.021: Pre-arrival notification flag
+  preArrivalNotified    Boolean     @default(false)
   trips                 Trip[]
   updatedAt             DateTime    @updatedAt
   is_deleted            Boolean     @default(false)
 
   // Relations
-  supplier              Location    @relation("supplier", fields: [supplierId], references: [id])
-  destination           Location    @relation("destination", fields: [destinationId], references: [id])
-  hub                   Location?   @relation("hub", fields: [hubId], references: [id])
   createdByUser         User        @relation(fields: [createdBy], references: [id])
   incidents             Incident[]
   notifications         Notification[]
 
-  @@index([supplierId])
-  @@index([destinationId])
-  @@index([hubId])
-  @@index([createdBy])
+  @@index([warehouse_id])
+  @@index([plan_date])
   @@index([status])
+  @@index([createdBy])
   @@index([is_deleted])
   @@map("transport_plans")
+}
+
+model Order {
+  id                   String      @id @default(cuid())
+  departure_location_id String
+  arrival_location_id  String
+  loading_date         DateTime
+  unit_count           Int
+  status               OrderStatus @default(DRAFT)
+  trip_id              String?
+  created_by           String
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  is_deleted           Boolean     @default(false)
+
+  // Relations
+  departure_location   Location    @relation("order_departure", fields: [departure_location_id], references: [id])
+  arrival_location     Location    @relation("order_arrival", fields: [arrival_location_id], references: [id])
+  trip                 Trip?       @relation(fields: [trip_id], references: [id])
+  created_by_user      User        @relation("order_creator", fields: [created_by], references: [id])
+
+  @@index([status])
+  @@index([departure_location_id, arrival_location_id])
+  @@index([trip_id])
+  @@index([created_by])
+  @@index([is_deleted])
+  @@map("orders")
 }
 
 model Incident {
@@ -164,6 +195,11 @@ model Trip {
   planId           String
   carrierId        String
   status           TripStatus  @default(PROPOSED)
+  departure_location_id String?
+  arrival_location_id String?
+  loading_time     DateTime?
+  departure_time   DateTime?
+  arrival_time     DateTime?
   acceptedAt       DateTime?
   refusedAt        DateTime?
   refusalReason    String?
@@ -174,11 +210,15 @@ model Trip {
   // Relations
   plan             TransportPlan @relation(fields: [planId], references: [id])
   carrier          User          @relation("carrier", fields: [carrierId], references: [id])
+  departure_location Location?  @relation("trip_departure", fields: [departure_location_id], references: [id])
+  arrival_location Location?    @relation("trip_arrival", fields: [arrival_location_id], references: [id])
+  orders           Order[]       // One-to-many: each trip can have multiple orders
   cmr              CMR?         // One-to-one: each trip can have one CMR
 
   @@index([carrierId])
   @@index([planId])
   @@index([status])
+  @@index([departure_location_id, arrival_location_id])
   @@index([is_deleted])
   @@map("trips")
 }
@@ -230,4 +270,24 @@ model CMR {
   @@index([status])
   @@index([is_deleted])
   @@map("cmrs")
+}
+model TransportPlanArchive {
+  id                    String      @id @default(cuid())
+  original_plan_id      String
+  warehouse_id          String?
+  plan_date             DateTime?
+  status                PlanStatus
+  total_trips           Int
+  total_units           Int
+  version               Int
+  archived_at           DateTime    @default(now())
+  retention_date        DateTime    // When to delete (archived_at + 2 years)
+  original_data         String      // JSON backup of full plan
+  createdAt             DateTime
+  is_deleted            Boolean
+
+  @@index([original_plan_id])
+  @@index([archived_at])
+  @@index([retention_date])
+  @@map("transport_plan_archives")
 }

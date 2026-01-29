@@ -11,8 +11,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const user = (req as any).user;
 
-  // Only STORE role can access this endpoint
-  if (user.role !== 'STORE') {
+  // Only STORE role can access this endpoint (token stores role in lowercase)
+  if (user.role?.toUpperCase() !== 'STORE') {
     return res.status(403).json({ success: false, error: 'Access denied - STORE role required' });
   }
 
@@ -33,9 +33,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const limit = parseInt(req.query.limit as string) || 20;
   const cursor = req.query.cursor as string | undefined;
 
-  // Build query
+  // Build query - find plans where any trip has destination = store location
   const where = {
-    destinationId: storeUser.storeLocationId,
+    trips: {
+      some: {
+        arrival_location_id: storeUser.storeLocationId
+      }
+    },
     is_deleted: false
   };
 
@@ -53,27 +57,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         select: { id: true }
       },
       trips: {
-        select: { status: true }
+        select: { 
+          id: true,
+          status: true,
+          arrival_location_id: true,
+          arrival_time: true,
+          carrierId: true
+        }
       }
     },
     orderBy: {
-      estimatedDeliveryTime: 'asc'
+      plan_date: 'asc'
     },
     take: limit,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {})
   });
 
   // Map to response format
-  const mappedDeliveries = deliveries.map(plan => ({
-    id: plan.id,
-    status: plan.status,
-    supplierId: plan.supplierId,
-    destinationId: plan.destinationId,
-    estimatedDeliveryTime: plan.estimatedDeliveryTime,
-    incidentCount: plan.incidents.length,
-    tripStatus: plan.trips[0]?.status || 'PROPOSED',
-    unitCount: plan.unitCount
-  }));
+  const mappedDeliveries = deliveries.map(plan => {
+    const firstTrip = plan.trips[0];
+    return {
+      id: plan.id,
+      status: plan.status,
+      estimatedDeliveryTime: plan.plan_date?.toISOString() || new Date().toISOString(),
+      arrival_time: firstTrip?.arrival_time?.toISOString() || null,
+      departure_location_id: firstTrip?.arrival_location_id || "Unknown",
+      carrier_id: firstTrip?.carrierId || null,
+      incidentCount: plan.incidents.length,
+      tripStatus: firstTrip?.status || 'PROPOSED',
+      unitCount: plan.total_units
+    };
+  });
 
   return res.status(200).json({
     success: true,

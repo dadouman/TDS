@@ -5,7 +5,7 @@
  */
 
 import { useRouter } from 'next/router';
-import { CMRForm } from '@/src/components/CMRForm';
+import { CMRForm } from '@/components/CMRForm';
 
 export default function CMRFormPage() {
   const router = useRouter();

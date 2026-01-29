@@ -47,7 +47,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse<PlanDetailsResp
         return res.status(404).json({ error: 'Plan not found' });
       }
 
-      if (user.role !== 'ADMIN' && plan.createdBy !== user.userId) {
+      // Authorization: ADMIN, plan creator (FREIGHTER), or STORE user if plan destination matches their store
+      const userRole = user.role?.toUpperCase();
+      const isAdmin = userRole === 'ADMIN';
+      const isCreator = plan.createdBy === user.userId;
+      
+      // For STORE role, check if plan destination matches user's store location
+      let isStoreDestination = false;
+      if (userRole === 'STORE') {
+        const storeUser = await prisma.user.findUnique({
+          where: { id: user.userId },
+          select: { storeLocationId: true }
+        });
+        isStoreDestination = storeUser?.storeLocationId === plan.destinationId;
+      }
+
+      if (!isAdmin && !isCreator && !isStoreDestination) {
         return res.status(403).json({ error: 'Unauthorized: Cannot view this plan' });
       }
 
@@ -86,7 +101,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse<PlanDetailsResp
           costs: costBreakdown,
           status: plan.status,
           version: plan.version,
-          createdBy: plan.createdByUser,
+          createdBy: plan.createdByUser?.email || 'Unknown',
           createdAt: plan.createdAt,
           updatedAt: plan.updatedAt
         }
@@ -233,7 +248,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse<PlanDetailsResp
           version: updatedPlan.version,
           proposedCarriers: newProposals,
           changedFields: changedFields,
-          createdBy: updatedPlan.createdByUser,
+          createdBy: updatedPlan.createdByUser?.email || 'Unknown',
           createdAt: updatedPlan.createdAt,
           updatedAt: updatedPlan.updatedAt
         }
@@ -249,4 +264,4 @@ async function handler(req: NextApiRequest, res: NextApiResponse<PlanDetailsResp
   }
 }
 
-export default withAuth(handler, ['freighter', 'admin']);
+export default withAuth(handler, ['freighter', 'admin', 'store']);
